@@ -31,6 +31,7 @@ data GroupMeConfig = GroupMeConfig
 
 data SlackConfig = SlackConfig
   { _slackAccessKey :: B.ByteString
+  , _slackAppToken :: B.ByteString
   , _slackChannelId :: Text }
   deriving (Show)
 
@@ -63,7 +64,7 @@ instance HasGroupMeConfig Config where
 
 eitherGetConfig :: IO (Either String Config)
 eitherGetConfig = do
-  loadFile False "./.env"
+  loadFile False "./.env.local"
   getCompose $
      Config <$>
       (GroupMeConfig <$>
@@ -71,6 +72,7 @@ eitherGetConfig = do
         cLookupText "GROUPME_BOT_ID") <*>
       (SlackConfig <$>
         cLookupBs "SLACK_ACCESS_KEY" <*>
+        cLookupBs "SLACK_APP_TOKEN" <*>
         cLookupText "SLACK_CHANNEL_ID") <*>
       cLookupSentry "SENTRY_DSN"
   where

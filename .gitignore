@@ -1,7 +1,8 @@
-.env
+.env.local
 .stack-work
 
 # These are build artifacts, no need to commit
 linux-stack.yaml
 app-docker/slack-groupme-bridge-exe
+app-docker/.env
 

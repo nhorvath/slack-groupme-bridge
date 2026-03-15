@@ -32,12 +32,32 @@ instance ToJSON SlackBotMessage where
                                           , omitNothingFields = True }
 
 
-data SlackRtmConnectResp = SlackRtmConnectResp
-  { _srtmr_ok :: Bool
-  , _srtmr_url :: String }
+data SlackSocketConnectResp = SlackSocketConnectResp
+  { _sscr_ok :: Bool
+  , _sscr_url :: String }
   deriving (Show, Generic)
-instance FromJSON SlackRtmConnectResp where
-  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 7 }
+instance FromJSON SlackSocketConnectResp where
+  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 6 }
+
+data SlackSocketEnvelope = SlackSocketEnvelope
+  { _sse_envelope_id :: Maybe Text
+  , _sse_type :: Text
+  , _sse_payload :: Maybe SlackSocketPayload }
+  deriving (Show, Generic)
+instance FromJSON SlackSocketEnvelope where
+  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 5 }
+
+data SlackSocketPayload = SlackSocketPayload
+  { _ssp_event :: SlackEvent }
+  deriving (Show, Generic)
+instance FromJSON SlackSocketPayload where
+  parseJSON = genericParseJSON $ defaultOptions { fieldLabelModifier = drop 5 }
+
+data SlackSocketAck = SlackSocketAck
+  { _ssa_envelope_id :: Text }
+  deriving (Show, Generic)
+instance ToJSON SlackSocketAck where
+  toJSON = genericToJSON $ defaultOptions { fieldLabelModifier = drop 5 }
 
 
 data SlackEvent = SlackEventMessage SlackMessage
@@ -100,7 +120,10 @@ instance FromJSON SlackUser where
 
 
 makeLenses 'SlackBotMessage
-makeLenses 'SlackRtmConnectResp
+makeLenses 'SlackSocketConnectResp
+makeLenses 'SlackSocketEnvelope
+makeLenses 'SlackSocketPayload
+makeLenses 'SlackSocketAck
 makePrisms ''SlackEvent
 makeLenses 'SlackMessage
 makeLenses 'SlackUserResp

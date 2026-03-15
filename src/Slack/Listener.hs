@@ -47,31 +47,32 @@ import Utilities
 
 startWsListener :: (MonadReader r m, HasConfig r, MonadIO m, MonadBaseControl IO m, MonadLogger m, Forall (Pure m), MonadCatch m) => m ()
 startWsListener = do
-  res <- rtmConnect
-  rtmListen res
+  res <- socketConnect
+  socketListen res
 
 
-rtmConnect :: (MonadReader r m, HasSlackConfig r, MonadIO m, MonadLogger m, MonadThrow m) => m SlackRtmConnectResp
-rtmConnect = do
+socketConnect :: (MonadReader r m, HasSlackConfig r, MonadIO m, MonadLogger m, MonadThrow m) => m SlackSocketConnectResp
+socketConnect = do
   config <- askSlackConfig
   $(logInfo) "Obtaining a websocket url."
-  res <- liftIO $ post "https://slack.com/api/rtm.connect" ["token" := (config ^. slackAccessKey)]
+  let opts = defaults & header "Authorization" .~ ["Bearer " <> config ^. slackAppToken]
+  res <- liftIO $ postWith opts "https://slack.com/api/apps.connections.open" ([] :: [FormParam])
   let eitherBody = eitherDecode' $ res ^. responseBody
   case eitherBody of Left err -> throwString err
                      Right body -> return body
 
 
-rtmListen :: (MonadReader r m, HasConfig r, MonadIO m, MonadBaseControl IO m, MonadLogger m, Forall (Pure m), MonadCatch m) =>
-             SlackRtmConnectResp ->
-             m ()
-rtmListen rtmConnectResp = do
+socketListen :: (MonadReader r m, HasConfig r, MonadIO m, MonadBaseControl IO m, MonadLogger m, Forall (Pure m), MonadCatch m) =>
+                SlackSocketConnectResp ->
+                m ()
+socketListen connectResp = do
   let eitherUriAuthority = do
-        uri <- maybe (fail "Could not parse websockets url.") return $ parseAbsoluteURI $ rtmConnectResp ^. srtmr_url
+        uri <- maybe (fail "Could not parse websockets url.") return $ parseAbsoluteURI $ connectResp ^. sscr_url
         authority' <- maybe (fail "Could not parse websockets domain.") return $ uriAuthority uri
         return (uri, authority')
   (uri, authority') <- either throwString return eitherUriAuthority
   let domain = uriRegName authority'
-      path' = uriPath uri
+      path' = uriPath uri <> uriQuery uri
   nameCache <- newCache
   liftBaseOp (runSecureClient domain 443 path') $ \connection -> do
     $(logInfo) "Listening to the slack websocket."
@@ -80,7 +81,10 @@ rtmListen rtmConnectResp = do
     let readLoop = do
           handleAny loopErrorHandler $ do
             raw <- liftIO $ receiveData connection
-            either throwString queueEvent (eitherDecodeStrict' raw)
+            envelope <- either throwString return (eitherDecodeStrict' raw)
+            mapM_ (\eid -> liftIO $ sendTextData connection $ encode $ SlackSocketAck eid) (envelope ^. sse_envelope_id)
+            when (envelope ^. sse_type == "disconnect") $ throw ConnectionClosed
+            mapM_ (queueEvent . (^. ssp_event)) (envelope ^. sse_payload)
           readLoop
     let writeLoop = do
           handleAny loopErrorHandler $ do
