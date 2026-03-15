@@ -127,7 +127,7 @@ mBuildResponse cache event = case event of (SlackEventOther val) -> return Nothi
         let botId = gmConfig ^. configGroupMeBotId
         return $ Just $ GroupMeBotMessage
                           (gmConfig ^. configGroupMeBotId)
-                          (message ^. sm_text <> "\n\n      - " <> userName)
+                          (userName <> ": " <> message ^. sm_text)
                           (gmConfig ^. configGroupMeAccessKey)
                           Nothing
     handleFileShare fileShare = do
@@ -140,8 +140,8 @@ mBuildResponse cache event = case event of (SlackEventOther val) -> return Nothi
             slackFile = fileShare ^. sfs_file
         (gmPictureUrl, userName) <- concurrently (transferSlackImageToGroupMe slackFile) (getName userId)
         let fileComment = case fileShare ^. sfs_file . sf_initial_comment of
-                            Nothing -> userName
-                            Just comment -> comment ^. sfc_comment <> "\n\n      - " <> userName
+                            Nothing -> userName <> ": "
+                            Just comment -> userName <> ": " <> comment ^. sfc_comment
         return $ Just $ GroupMeBotMessage
                           (gmConfig ^. configGroupMeBotId)
                           fileComment
