@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
+unset SSH_AUTH_SOCK
+
 cp ./stack.yaml ./linux-stack.yaml
-printf "\n\ndocker:\n    enable: true\n    auto-pull: true\n" >> ./linux-stack.yaml
+printf "\n\ndocker:\n    enable: true\n    auto-pull: true\n    run-args: [\"--platform=linux/amd64\"]\n" >> ./linux-stack.yaml
 
 stack --stack-yaml linux-stack.yaml build
 
